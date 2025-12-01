@@ -4,7 +4,7 @@
 
 ## Overview
 
-This project is a **Python port** of the [original Go-based patcher](https://github.com/ogame-ninja/extension-patcher) used to adapt browser extensions for OGame Ninja. The patcher automatically downloads the latest OGLight userscript and applies 14 patches to make it compatible with OGame Ninja's architecture.
+This project is a **Python port** of the [original Go-based patcher](https://github.com/ogame-ninja/extension-patcher) used to adapt browser extensions for OGame Ninja. The patcher automatically downloads the latest OGLight userscript and applies 19 patches to make it compatible with OGame Ninja's architecture.
 
 ### Why Python?
 
@@ -50,16 +50,16 @@ func main() {
 }
 ```
 
-### This Patcher (Python v2.1)
+### This Patcher (Python v2.8)
 ```python
 #!/usr/bin/env python3
 """
-OGLight Patcher - Adapta o OGLight para OGame Ninja
-Versao: 2.1 - Atualizado para OGLight 5.3.2 + BUGFIXES
+OGLight Patcher - Adapts OGLight for OGame Ninja
+Version: 2.8 - Updated for OGLight 5.3.3
 """
 
 # Self-contained, standalone implementation
-# Downloads, validates SHA256, applies 14 patches, generates output
+# Downloads, validates SHA256, applies 19 patches, generates output
 ```
 
 ---
@@ -81,46 +81,52 @@ Versao: 2.1 - Atualizado para OGLight 5.3.2 + BUGFIXES
 
 ### Key Improvements Over Original
 
-1. **Bugfix #1 - Session Validation Adapted** (Patch 13)
+1. **Multi-Account Support** (Patches 5, 16, 19)
+   - localStorage keys isolated per universe/player
+   - Team Key shared per universe (not per player)
+   - Prevents configuration conflicts between accounts
+
+2. **Session Validation Adapted** (Patch 15)
    - **Original Issue**: OGLight validates sessions using `prsess_` cookies (Gameforge method)
    - **Problem**: OGame Ninja doesn't use those cookies → forced logout
    - **Solution**: ADAPTED (not removed) validation logic to use meta tags while keeping security checks
 
-2. **Bugfix #2 - URL Validation** (Patch 14)
+3. **URL Validation** (Patch 4)
    - **Original Issue**: Regex extraction could crash on invalid URLs
    - **Problem**: `null[1]` access caused JavaScript error
    - **Solution**: Added pre-validation before accessing regex groups
 
-3. **Enhanced Logging**
+4. **Enhanced Logging**
    - Go version: Silent operation via framework
    - Python version: Detailed progress output for each patch
 
-4. **SHA256 Flexibility**
-   - Go version: Hardcoded old OGLight hash
-   - Python version: Updated to OGLight 5.3.2 hash
-
 ---
 
-## The 14 Patches
+## The 19 Patches
 
 All patches from the original Go code were preserved and improved:
 
-| # | Patch | Go Implementation | Python Implementation |
-|---|-------|-------------------|----------------------|
-| 1 | Script Name | `replN()` call | `str.replace()` with count=1 |
-| 2 | @match URLs | Template replacement | Multi-line string injection |
-| 3 | Environment Vars | Heredoc injection | Raw string with tab preservation |
-| 4 | localStorage Prefix | 3x `replN()` | 3x `replace()` (2 getItem, 1 setItem) |
-| 5 | Server ID Source | `window.location.host` → meta tag | `window.location.host` → meta tag |
-| 6 | Language Source | Cookie → variable | Cookie → variable |
-| 7 | UUID Generation | `crypto.randomUUID()` → polyfill | `crypto.randomUUID()` → polyfill |
-| 8 | playerData.xml URL | Hardcoded → dynamic | Hardcoded → dynamic with `?id=` param |
-| 9 | serverData.xml URL | Hardcoded → dynamic | Hardcoded → dynamic |
-| 10 | Player Link URL | Hardcoded → `pathname` | Hardcoded → `pathname` |
-| 11 | Message URL | Hardcoded → `pathname` | Hardcoded → `pathname` |
-| 12 | Generic URLs | 25 replacements | 30 replacements |
-| 13 | **BUGFIX** Session Validation | Not in original | **NEW** - Adapts session logic (keeps validation) |
-| 14 | **BUGFIX** URL Validation | Not in original | **NEW** - Prevents crashes |
+| # | Patch | Description |
+|---|-------|-------------|
+| 1 | Script Name | Renamed to "OGLight Ninja (CellMaster's Patcher)" |
+| 2 | @match URLs | Universal pattern for Ninja URL structure |
+| 3 | Auto-update | Removed @downloadURL/@updateURL (prevents overwriting) |
+| 4 | Environment Vars | Injected UNIVERSE, PROTOCOL, HOST, PLAYER_ID with error handling |
+| 5 | Team Key (PTRE) | Prefixed with UNIVERSE (shared per universe, not per player) |
+| 6 | Server ID Source | `window.location.host` → meta tag `ogame-universe` |
+| 7 | Language Source | Cookie `oglocale` → extracted from URL |
+| 8 | UUID Generation | `crypto.randomUUID()` → polyfill (1 array + N item.uid) |
+| 9 | playerData.xml URL | Hardcoded → dynamic with `/api/sXXX/lang/` format |
+| 10 | serverData.xml URL | Hardcoded → dynamic |
+| 11 | players.xml URL | Hardcoded → dynamic |
+| 12 | Player Link URL | Hardcoded → uses PROTOCOL/HOST/pathname |
+| 13 | Message URL | Hardcoded → uses PROTOCOL/HOST/pathname |
+| 14 | Generic Game URLs | Converted to Ninja format (all occurrences) |
+| 15 | **Multi-session Logic** | Adapted for meta tags (keeps validation) |
+| 16 | DBName | Uses UNIVERSE variable for proper isolation |
+| 17 | French Keyboard | AZERTY detection uses `lang` variable |
+| 18 | Legacy DB Migration | Adapted for OGame Ninja meta tags |
+| 19 | localStorage Keys | Remaining keys prefixed with UNIVERSE |
 
 ### Patch Details
 
@@ -130,21 +136,35 @@ All patches from the original Go code were preserved and improved:
 @name         OGLight
 
 // After
-@name         OGLight Ninja
+@name         OGLight Ninja (CellMaster's Patcher)
 ```
 
-#### Patch 2: Add OGame Ninja URLs
+#### Patch 2: Universal @match Pattern
 ```javascript
-// Added
-// @match        *127.0.0.1*/bots/*/browser/html/*?page=*
-// @match        *.ogame.ninja/bots/*/browser/html/*?page=*
+// Before
+// @match        https://*.ogame.gameforge.com/game/*
+
+// After
+// @match        *://*/bots/*/browser/html/*?page=*
 ```
 
-#### Patch 3: Environment Variables Injection
+#### Patch 3: Remove Auto-Update
+```javascript
+// Removed (prevents overwriting patched version)
+// @downloadURL https://update.greasyfork.org/scripts/514909/OGLight.user.js
+// @updateURL https://update.greasyfork.org/scripts/514909/OGLight.meta.js
+```
+
+#### Patch 4: Environment Variables Injection (with Error Handling)
 ```javascript
 // Injected after ==/UserScript==
-const universeNum = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href)[1];
-const lang = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href)[2];
+const urlMatch = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href);
+if(!urlMatch) {
+    console.error('[OGLight Ninja] Invalid URL - expected format: browser/html/sXXX-xx');
+    throw new Error('Invalid OGame Ninja URL format');
+}
+const universeNum = urlMatch[1];
+const lang = urlMatch[2];
 const UNIVERSE = "s" + universeNum + "-" + lang;
 const PROTOCOL = window.location.protocol;
 const HOST = window.location.host;
@@ -152,18 +172,18 @@ const PLAYER_ID = document.querySelector("meta[name=ogame-player-id]").content;
 const localStoragePrefix = UNIVERSE + "-" + PLAYER_ID + "-";
 ```
 
-#### Patch 4: localStorage Isolation
+#### Patch 5: Team Key Storage (Per Universe)
 ```javascript
-// Before
+// Before (global - same key for all universes)
 localStorage.getItem('ogl-ptreTK')
 localStorage.setItem('ogl-ptreTK', ...)
 
-// After
-localStorage.getItem(localStoragePrefix+'ogl-ptreTK')
-localStorage.setItem(localStoragePrefix+'ogl-ptreTK', ...)
+// After (per universe - shared by all accounts in same universe)
+localStorage.getItem(UNIVERSE+'-ogl-ptreTK')
+localStorage.setItem(UNIVERSE+'-ogl-ptreTK', ...)
 ```
 
-#### Patches 5-6: Data Source Migration
+#### Patches 6-7: Data Source Migration
 ```javascript
 // Server ID: URL Parsing → Meta Tag
 // Before
@@ -180,55 +200,53 @@ this.account.lang = /oglocale=([a-z]+);/.exec(document.cookie)[1];
 this.account.lang = lang;
 ```
 
-#### Patch 7: UUID Polyfill
+#### Patch 8: UUID Polyfill (All Occurrences)
 ```javascript
 // Before (not supported in older browsers)
 let uuid = [crypto.randomUUID(), 0];
+item.uid = crypto.randomUUID();
 
 // After (manual UUID v4 generation)
 let uuid = ['xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
 }), 0];
+item.uid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+});
 ```
 
-#### Patches 8-12: URL Corrections
+#### Patches 9-14: URL Corrections
 ```javascript
 // Dynamic API endpoints
 url: `${PROTOCOL}//${HOST}/api/s${universeNum}/${lang}/playerData.xml?id=${player.uid}`
 url: `${PROTOCOL}//${HOST}/api/s${universeNum}/${lang}/serverData.xml`
+url: `${PROTOCOL}//${HOST}/api/s${universeNum}/${lang}/players.xml`
 
 // Dynamic game URLs using pathname
-href: `${window.location.protocol}//${window.location.host}${window.location.pathname}?page=...`
+href: `${PROTOCOL}//${HOST}${window.location.pathname}?page=...`
 
-// Remove hardcoded domain (30 occurrences)
-'https://${window.location.host}/game/index.php' → ''
+// All game URLs converted to Ninja format
+'https://${window.location.host}/game/index.php' → '${PROTOCOL}//${HOST}${window.location.pathname}'
 ```
 
-#### Patch 13: BUGFIX - Adapt Session Validation Logic
+#### Patch 15: Adapt Multi-Session Logic
 **THE MOST CRITICAL FIX - Adapts (not removes) security logic**
 
 ```javascript
-// BEFORE (Original OGLight - 30 lines using cookies)
+// BEFORE (Original OGLight - using cookies)
 // get the account ID in cookies
 let cookieAccounts = document.cookie.match(/prsess\_([0-9]+)=/g);
 
 // purge cookies to prevent session conflict
 if(cookieAccounts?.length > 1) {
-    const allCookies = document.cookie.split(';');
-    for(let i = 0; i < allCookies.length; i++) {
-        let cookie = allCookies[i].trim();
-        const cookieName = cookie.split('=')[0];
-        if(cookieName.startsWith('prsess_')) {
-            document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
-        }
-    }
-    cookieAccounts = document.cookie.match(/prsess\_([0-9]+)=/g);
+    // ... cookie purge logic
 }
 
 // force relogin
-if(!cookieAccounts) {  // ❌ Always TRUE on OGame Ninja → Forces logout!
-    alert('You have been signed out due to a session conflict. Please log in again to continue.');
+if(!cookieAccounts) {  // Always TRUE on OGame Ninja → Forces logout!
+    alert('You have been signed out...');
     window.location.href = "index.php?page=logout";
     return;
 }
@@ -241,7 +259,7 @@ const accountMeta = document.querySelector('head meta[name="ogame-player-id"]');
 
 // validate session exists (adapted for OGame Ninja)
 if(!accountMeta || !accountMeta.content) {
-    console.error('[OGLight Ninja] No player ID found in meta tag - session may be invalid');
+    console.error('[OGLight Ninja] No player ID found in meta tag');
     alert('Session error: Unable to retrieve player ID. Please refresh the page.');
     return;
 }
@@ -256,28 +274,59 @@ if(!accountID || accountID === '0') {
 }
 ```
 
-**Why adaptation (not removal) is correct:**
-1. **Original intent preserved**: Still validates session before proceeding
-2. **Method adapted**: Uses meta tags instead of `prsess_` cookies
-3. **Security maintained**: Checks for missing/invalid player ID
-4. **User feedback**: Shows appropriate error messages
-5. **No forced logout**: Doesn't redirect to logout on OGame Ninja
-6. **Philosophy**: Patcher adapts code, doesn't remove functionality
-
-#### Patch 14: BUGFIX - URL Validation
+#### Patch 16: DBName Isolation
 ```javascript
-// BEFORE (CRASH RISK)
-const universeNum = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href)[1];  // ❌ null[1] = crash!
-const lang = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href)[2];
+// Before (uses hostname which doesn't exist in Ninja)
+this.DBName = `${accountID}-${window.location.host.split('.')[0]}`;
 
-// AFTER (SAFE)
-const urlMatch = /browser\/html\/s(\d+)-(\w+)/.exec(window.location.href);
-if(!urlMatch) {
-    console.error('[OGLight Ninja] URL invalida - esperado formato: browser/html/sXXX-xx');
-    throw new Error('Invalid OGame Ninja URL format');
+// After (uses UNIVERSE variable)
+this.DBName = `${accountID}-${UNIVERSE}`;
+```
+
+#### Patch 17: French Keyboard Detection
+```javascript
+// Before (parses hostname)
+galaxyUp: window.location.host.split(/[-.]/)[1] == 'fr' ? 'z' : 'w',
+galaxyLeft: window.location.host.split(/[-.]/)[1] == 'fr' ? 'q' : 'a',
+
+// After (uses lang variable)
+galaxyUp: lang == 'fr' ? 'z' : 'w',
+galaxyLeft: lang == 'fr' ? 'q' : 'a',
+```
+
+#### Patch 18: Legacy DB Migration
+```javascript
+// Before (uses window.location.host)
+if(!GM_getValue(this.DBName) && GM_getValue(window.location.host)) {
+    GM_setValue(this.DBName, GM_getValue(window.location.host));
+    GM_deleteValue(window.location.host);
+    window.location.reload();
 }
-const universeNum = urlMatch[1];
-const lang = urlMatch[2];
+
+// After (uses meta tag)
+const oldHost = document.querySelector('meta[name="ogame-universe"]').getAttribute('content');
+if(!GM_getValue(this.DBName) && GM_getValue(oldHost)) {
+    GM_setValue(this.DBName, GM_getValue(oldHost));
+    GM_deleteValue(oldHost);
+    window.location.reload();
+}
+```
+
+#### Patch 19: Full localStorage Isolation
+```javascript
+// Before (global keys - conflicts in multi-account)
+localStorage.getItem('ogl-redirect')
+localStorage.getItem('ogl_minipics')
+localStorage.getItem('ogl_menulayout')
+localStorage.getItem('ogl_colorblind')
+localStorage.getItem('ogl_sidepanelleft')
+
+// After (prefixed with UNIVERSE)
+localStorage.getItem(UNIVERSE+'-ogl-redirect')
+localStorage.getItem(UNIVERSE+'-ogl_minipics')
+localStorage.getItem(UNIVERSE+'-ogl_menulayout')
+localStorage.getItem(UNIVERSE+'-ogl_colorblind')
+localStorage.getItem(UNIVERSE+'-ogl_sidepanelleft')
 ```
 
 ---
@@ -297,32 +346,42 @@ python patcher.py
 ### Output
 ```
 ============================================================
-OGLight Patcher - OGame Ninja Edition v2.1
-Supported OGLight version: 5.3.2 + BUGFIXES
+OGLight Patcher - OGame Ninja Edition v2.8
+Supported OGLight version: 5.3.3 (19 patches)
 ============================================================
 
-[*] Downloading file from: https://raw.githubusercontent.com/TheCellMaster/OGLight/main/OGLight.user.js
+[*] Downloading file from: https://update.greasyfork.org/scripts/514909/OGLight.user.js
 [+] Download completed!
-[*] Expected SHA256: 75f877eb9d6435e9c9466b1bc9dfc0e768f1a5e37ae311b1770c999b317e748c
-[*] Current SHA256:  75f877eb9d6435e9c9466b1bc9dfc0e768f1a5e37ae311b1770c999b317e748c
+[*] Expected SHA256: 371795e1a20f04040c00fc9568b92fe536960aa115a49d406f3ae60a6405b432
+[*] Current SHA256:  371795e1a20f04040c00fc9568b92fe536960aa115a49d406f3ae60a6405b432
 [+] SHA256 validated successfully!
 
 [*] Applying patches...
-  [+] Patch 1/14: Script name changed
-  [+] Patch 2/14: @match URLs added
-  [+] Patch 3/14: Environment variables injected
-  [+] Patch 4/14: localStorage prefixed (3 occurrences)
-  [+] Patch 5/14: Server ID via meta tag
-  [+] Patch 6/14: Lang via variable
-  [+] Patch 7/14: crypto.randomUUID() replaced
-  [+] Patch 8/14: playerData.xml URL fixed
-  [+] Patch 9/14: serverData.xml URL fixed
-  [+] Patch 10/14: Player link fixed
-  [+] Patch 11/14: Message URL fixed
-  [+] Patch 12/14: Generic URLs removed (28 occurrences)
-  [+] Patch 13/14: Multi-session logic ADAPTED for OGame Ninja (keeps validation)
-  [+] Patch 14/14: Regex error handling (BUGFIX - prevents crash on invalid URLs)
-[+] All 14 patches applied successfully!
+  [+] Patch 1/19: Script name changed
+  [+] Patch 2/19: @match simplified to universal pattern
+  [+] Patch 3/19: Auto-update URLs removed
+  [+] Patch 4/19: Environment variables injected (with error handling)
+  [+] Patch 5/19: Team Key prefixed with UNIVERSE (2 get + 1 set)
+  [+] Patch 6/19: Server ID via meta tag
+  [+] Patch 7/19: Lang via variable
+  [+] Patch 8/19: crypto.randomUUID() replaced (1 array + 2 item.uid)
+  [+] Patch 9/19: playerData.xml URL fixed
+  [+] Patch 10/19: serverData.xml URL fixed
+  [+] Patch 11/19: players.xml URL fixed
+  [+] Patch 12/19: Player link fixed
+  [+] Patch 13/19: Message URL fixed
+  [+] Patch 14/19: Game URLs converted to Ninja format (28 occurrences)
+  [+] Patch 15/19: Multi-session logic ADAPTED for OGame Ninja (keeps validation)
+  [+] Patch 16/19: DBName uses UNIVERSE variable
+  [+] Patch 17/19: French keyboard detection fixed
+  [+] Patch 18/19: Legacy DB migration fixed for Ninja
+    - ogl-redirect: 1 get + 4 set
+    - ogl_minipics: 1 get + 1 set
+    - ogl_menulayout: 1 get + 2 set
+    - ogl_colorblind: 1 get + 1 set
+    - ogl_sidepanelleft: 1 get + 1 set
+  [+] Patch 19/19: Remaining localStorage keys prefixed (14 occurrences)
+[+] All 19 patches applied successfully!
 
 [*] Saving file: OGLight_Ninja.user.js
 [+] File saved successfully!
@@ -330,7 +389,6 @@ Supported OGLight version: 5.3.2 + BUGFIXES
 ============================================================
 Process completed successfully!
 Generated file: OGLight_Ninja.user.js
-Install the file in OGame Ninja browser/Tampermonkey
 ============================================================
 ```
 
@@ -360,17 +418,17 @@ Download (requests) → Validate (hashlib) → Process (custom) → Save (file I
                                                   ↓
                                            apply_patches()
                                                   ↓
-                                    14 str.replace() operations
-                                    (includes 2 bugfix patches)
+                                    19 str.replace() operations
+                                    (includes multi-account patches)
 ```
 
 ### Code Metrics
 
 | Metric | Go Version | Python Version |
 |--------|-----------|----------------|
-| **Total Lines** | ~60 (+ framework) | 260 (standalone) |
+| **Total Lines** | ~60 (+ framework) | ~400 (standalone) |
 | **Dependencies** | 1 external package | 1 standard library |
-| **Patches Applied** | 13 | 14 (12 original + 2 bugfixes) |
+| **Patches Applied** | 13 | 19 |
 | **Error Handling** | Panic on failure | Try/except blocks |
 | **Logging** | Framework-managed | Custom print statements |
 | **Testability** | Requires Go build | Direct Python execution |
@@ -379,26 +437,58 @@ Download (requests) → Validate (hashlib) → Process (custom) → Save (file I
 
 ## Version History
 
-### v2.1 (Current - Python)
-- 12 original Go patches adapted and improved
-- **NEW**: Patch 13 - ADAPTS session validation logic for OGame Ninja (fixes logout bug while keeping security)
-- **NEW**: Patch 14 - Adds URL validation (prevents crashes)
-- Updated SHA256 for OGLight 5.3.2
-- Enhanced logging and error messages
-- Standalone Python implementation
-- **Philosophy**: Adapts code (doesn't remove functionality)
+### v2.8 (Current - Python)
+- Updated for OGLight 5.3.3
+- SHA256 updated for new version
+- Removed unnecessary replace() limits for future-proofing
+- All patches verified compatible with 5.3.3 changes
 
-### v1.0 (Original - Go)
+### v2.7
+- Full localStorage isolation for multi-account support
+- Patch 12 & 13: Now use PROTOCOL/HOST variables (consistency fix)
+- Patch 19: Added - Prefixes remaining localStorage keys with UNIVERSE
+
+### v2.6
+- Code optimization and bug fixes
+- Patch 4: Error handling included directly
+- Patch 8: Now converts ALL crypto.randomUUID() calls
+- Patch 14: URLs now CONVERTED instead of REMOVED
+
+### v2.5
+- Team Key storage optimization
+- Team Key now stored per UNIVERSE (shared by all accounts in same universe)
+
+### v2.4
+- DB Migration fix added for OGame Ninja
+
+### v2.3
+- French keyboard (AZERTY) detection fixed
+
+### v2.2
+- DBName uses UNIVERSE variable for proper isolation
+
+### v2.1
+- Regex error handling added (prevents crashes on invalid URLs)
+
+### v2.0
+- Multi-session logic adapted for OGame Ninja
+
+### v1.0 (Python)
+- Initial Python port with 14 patches
+- Standalone implementation (no framework)
+- Added multi-session adaptation (Patch 15)
+
+### Original Go Patcher
 - 13 patches for OGLight compatibility
-- Framework-based implementation
+- Framework-based implementation (`extension-patcher`)
 - OGLight 5.x support
 - Required Go compilation
 
 ---
 
-## Why These Bugfixes Matter
+## Why These Patches Matter
 
-### The Logout Bug (Patch 13)
+### The Logout Bug (Patch 15)
 **Symptom**: Users randomly logged out of OGame Ninja
 
 **Root Cause**:
@@ -410,24 +500,26 @@ Download (requests) → Validate (hashlib) → Process (custom) → Save (file I
 **Impact**: Made OGLight unusable on OGame Ninja - immediate logout on load
 
 **Fix**: ADAPT session validation logic:
-- ✅ Keep validation philosophy (check for valid session)
-- ✅ Change method (meta tags instead of cookies)
-- ✅ Maintain security checks (validate player ID exists and is valid)
-- ✅ Preserve user feedback (error messages)
-- ❌ Don't force logout on OGame Ninja (no redirect)
+- Keep validation philosophy (check for valid session)
+- Change method (meta tags instead of cookies)
+- Maintain security checks (validate player ID exists and is valid)
+- Preserve user feedback (error messages)
+- Don't force logout on OGame Ninja (no redirect)
 
-### The Crash Bug (Patch 14)
-**Symptom**: Script crashes silently on certain URLs
+### Multi-Account Conflicts (Patches 5, 16, 19)
+**Symptom**: Settings from one account overwrite another
 
 **Root Cause**:
-1. Regex `.exec()` returns `null` if no match
-2. Code immediately accesses `[1]` without checking
-3. `null[1]` → JavaScript TypeError
-4. Script stops execution completely
+1. localStorage keys were global (same key for all accounts)
+2. Team Key was stored globally (needed to configure for each account)
+3. DBName used hostname (doesn't exist in Ninja)
 
-**Impact**: OGLight fails to load on non-standard URLs
+**Impact**: Multi-account users had constant configuration conflicts
 
-**Fix**: Store regex result, validate, then access groups
+**Fix**: Proper isolation:
+- Team Key per universe (shared by accounts in same universe)
+- localStorage keys prefixed with UNIVERSE+PLAYER_ID
+- DBName uses UNIVERSE variable
 
 ---
 
@@ -465,12 +557,12 @@ This is a derivative work based on the [OGame Ninja extension-patcher](https://g
 - **Original Patcher**: [ogame-ninja/extension-patcher](https://github.com/ogame-ninja/extension-patcher)
 - **OGLight Extension**: [TheCellMaster/OGLight](https://github.com/TheCellMaster/OGLight)
 - **OGame Ninja**: [ogame-ninja](https://github.com/ogame-ninja)
-- **Python Port**: This repository
+- **Python Port**: CellMaster
 
 ---
 
 ## Links
 
 - [OGame Ninja](https://github.com/ogame-ninja)
-- [OGLight Extension](https://github.com/TheCellMaster/OGLight)
+- [OGLight Extension](https://greasyfork.org/scripts/514909-oglight)
 - [Original Go Patcher](https://github.com/ogame-ninja/extension-patcher)
